@@ -45,8 +45,8 @@ def copy_reference_tree(src_root: Path, dest_root: Path,
 
 def notebook_command(notebook: str) -> list[str]:
     return [
-        "jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace",
-        f"notebooks/{notebook}",
+        sys.executable, "-m", "jupyter", "nbconvert", "--to", "notebook",
+        "--execute", "--inplace", f"notebooks/{notebook}",
     ]
 
 
@@ -71,7 +71,8 @@ def run(args: argparse.Namespace) -> int:
     print(f"Run id:  {run_id}")
     print(f"Run dir: {dest}")
 
-    copy_reference_tree(REPO_ROOT, dest)
+    if not args.dry_run:
+        copy_reference_tree(REPO_ROOT, dest)
     env = build_env(args.split_tag, args.minimal_outputs)
 
     if not args.skip_pytest:
