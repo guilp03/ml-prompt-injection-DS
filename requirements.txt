@@ -1,0 +1,12 @@
+datasets
+jupyter
+langdetect
+numpy
+pandas
+pytest
+scikit-learn
+scipy
+sentence-transformers
+torch
+transformers
+xgboost
