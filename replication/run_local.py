@@ -46,7 +46,9 @@ def copy_reference_tree(src_root: Path, dest_root: Path,
 def notebook_command(notebook: str) -> list[str]:
     return [
         sys.executable, "-m", "jupyter", "nbconvert", "--to", "notebook",
-        "--execute", "--inplace", f"notebooks/{notebook}",
+        "--execute", "--inplace",
+        "--ExecutePreprocessor.kernel_name=python3",
+        f"notebooks/{notebook}",
     ]
 
 

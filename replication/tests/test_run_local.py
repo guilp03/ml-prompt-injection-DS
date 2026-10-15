@@ -63,6 +63,7 @@ def test_copy_reference_tree_excludes(tmp_path):
 def test_notebook_command():
     cmd = rl.notebook_command("04_ablation_study.ipynb")
     assert "nbconvert" in cmd
+    assert "--ExecutePreprocessor.kernel_name=python3" in cmd
     assert cmd[-1] == "notebooks/04_ablation_study.ipynb"
 
 
