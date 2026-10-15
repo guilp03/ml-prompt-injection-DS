@@ -53,9 +53,10 @@ fica isolado em `replication/`.
 
 ```
 ml_PIDS/
-├── README.md                 # nosso: objetivo, atribuição, como rodar
-├── environment.yml           # env conda Python 3.10 + deps (torch CPU)
+├── README.md                 # (do ref, verbatim)
+├── .gitignore                # (do ref, verbatim)
 ├── requirements.txt          # (do ref, verbatim)
+├── environment.yml           # nosso: env conda Python 3.10 + deps (torch CPU)
 ├── data/                     # (do ref, verbatim) raw + processed
 ├── src/                      # (do ref, verbatim) módulos reutilizáveis
 ├── notebooks/                # (do ref, verbatim) 02..08
@@ -63,12 +64,19 @@ ml_PIDS/
 ├── tests/                    # (do ref, verbatim) suíte pytest
 ├── experiments/results/      # ORÁCULO: resultados dos autores — NÃO sobrescrever
 └── replication/              # SOMENTE nosso
-    ├── runs/                 # cópias isoladas onde os notebooks executam
-    ├── run_local.sh          # harness de execução
+    ├── README.md             # nosso: objetivo, atribuição, como rodar
+    ├── setup_env.sh          # criação do ambiente (conda + torch CPU)
+    ├── run_local.py          # harness de execução (testável)
+    ├── run_local.sh          # wrapper fino de run_local.py
     ├── compare_results.py    # diff runs/ vs oráculo
+    ├── runs/                 # cópias isoladas onde os notebooks executam
+    ├── tests/                # testes do nosso tooling
     ├── report.md             # relatório de reprodução (atualizado por run)
     └── NOTES.md              # decisões de adaptação / desvios
 ```
+
+Nota: o repo de referência já contém um `README.md` na raiz; ele é preservado
+verbatim. As instruções do nosso trabalho ficam em `replication/README.md`.
 
 **Racional:** nunca sobrescrever o oráculo (`experiments/results/`) nem misturar
 nosso tooling ao código original. Toda saída de execução vai para
@@ -89,33 +97,49 @@ nosso tooling ao código original. Toda saída de execução vai para
 
 ### 5.2 Harness de execução (`replication/run_local.sh`)
 
-Assinatura: `run_local.sh <SPLIT_TAG> [--smoke-transformers]`
+Assinatura: `run_local.py <SPLIT_TAG> [--smoke-transformers] [--minimal-outputs] [--skip-pytest] [--dry-run]`
 
 Passos:
 1. Copia a árvore do ref para `replication/runs/<run_id>/`, onde
-   `run_id = <timestamp>_<SPLIT_TAG>`.
-2. Executa `pytest` dentro da cópia.
-3. Executa os notebooks `04`, `05`, `06` via
+   `run_id = <timestamp>_<SPLIT_TAG>`, **excluindo** `.git`, `replication/`,
+   `docs/` e o diretório `experiments/` (para que a árvore de resultados do run
+   comece vazia e nada do oráculo seja confundido com saída gerada).
+2. Executa `pytest` dentro da cópia (pode ser pulado com `--skip-pytest`).
+3. Executa os notebooks `04`, `05`, `06` (nesta ordem) via
    `jupyter nbconvert --execute --inplace`, com as variáveis de ambiente
-   `SPLIT_TAG=<tag>` e `WRITE_MINIMAL_OUTPUTS=1`, **a partir do diretório
-   `notebooks/`** (os notebooks fazem `PROJECT_ROOT = Path("..")`).
-4. Com `--smoke-transformers`: executa `07` e `08` com configuração reduzida
-   (epochs/max_length pequenos) apenas para validar execução em CPU. Padrão:
-   desligado.
+   `SPLIT_TAG=<tag>` e `WRITE_MINIMAL_OUTPUTS=0` (outputs completos; troque por
+   `--minimal-outputs` para `WRITE_MINIMAL_OUTPUTS=1`), a partir
+   da raiz da cópia (os notebooks passam `notebooks/<arquivo>` e o kernel roda
+   com CWD em `notebooks/`, de modo que `PROJECT_ROOT = Path("..")` resolve
+   para a raiz do run).
+   - **Por que outputs completos (`WRITE_MINIMAL_OUTPUTS=0`):** os regimes OOD
+     hard-negative e std-injection (necessários para a conclusão qualitativa
+     central) só são gravados nesse modo. O notebook `06` também consome, quando
+     existente, o CSV do `05` do mesmo split (rodamos em ordem; há fallback
+     in-memory caso ausente).
+4. Com `--smoke-transformers`: executa `07` e `08` para validar que o código de
+   transformer executa em CPU. **Atenção:** as configs de transformer
+   (`num_epochs=3`, `max_length=256`) são fixas no código, sem override por env;
+   então o smoke roda com a configuração completa e é lento. Padrão: desligado.
 5. Todas as saídas ficam em `<run>/experiments/results/`.
 
 ### 5.3 Verificação (`replication/compare_results.py`)
 
-- Lê os CSVs gerados em `runs/<run_id>/experiments/results/metrics/` e os do
-  oráculo em `experiments/results/metrics/`.
-- Faz join por par **modelo × regime** (ID, OOD primary, hard-negative,
-  std-injection).
-- Calcula deltas de `macro_f1`, `roc_auc`, `auc_pr` e `tpr@1%/5%/10%`.
+- Lê os CSVs de métricas gerados em `runs/<run_id>/experiments/results/metrics/`
+  e os do oráculo em `experiments/results/metrics/`.
+- Normaliza em formato longo com chave `(model, split, eval_track, ood_name)`
+  (`ood_name` vem da coluna, ou é inferido do sufixo `__ood-<name>` no nome do
+  arquivo).
+- Faz join interno por essa chave e calcula deltas de `acc`, `macro_f1`,
+  `roc_auc`, `auc_pr` e `tpr@1%/5%/10%`.
 - Aplica tolerância configurável (default `±0.05`; opção `±0.02`).
 - Emite `runs/<run_id>/comparison.csv` + resumo no terminal: por métrica, quantos
   pares modelo×regime dentro/fora da tolerância.
-- Marca explicitamente modelos **não comparáveis localmente** (transformers
-  `07`/`08`).
+- **Escopo numérico:** o oráculo por-split cobre **ID + OOD primário**; esses são
+  os pares comparados automaticamente. Os regimes secundários (hard-negative e
+  std-injection) são avaliados **qualitativamente** no relatório, a partir dos
+  arquivos `__ood-<name>` gerados (o oráculo consolidado também fica disponível
+  para inspeção manual).
 
 ### 5.4 Relatório (`replication/report.md`)
 
