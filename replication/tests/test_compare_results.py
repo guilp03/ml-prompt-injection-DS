@@ -27,6 +27,12 @@ def test_parse_ood_from_name():
     assert cr.parse_ood_from_name(Path("metrics_ablation_splitA.csv")) is None
 
 
+def test_parse_split_tag_from_name():
+    assert cr.parse_split_tag_from_name(Path("metrics_ablation_splitB.csv")) == "B"
+    assert cr.parse_split_tag_from_name(Path("metrics_ablation_splitb.csv")) == "B"
+    assert cr.parse_split_tag_from_name(Path("metrics_ablation.csv")) == ""
+
+
 def test_load_metrics_dir_infers_ood_name_from_suffix(tmp_path):
     _write_metrics(tmp_path, "M1", "OOD", "ranking", 0.5, 0.6,
                    filename="metrics_ablation_splitA__ood-ood_test_injection.csv")
@@ -60,3 +66,53 @@ def test_summarize_reports_counts(tmp_path):
     )
     text = cr.summarize(comp, 0.05)
     assert "Dentro da tolerância" in text
+
+
+def test_different_splits_are_not_confused(tmp_path):
+    gen_dir = tmp_path / "gen"
+    oracle_dir = tmp_path / "oracle"
+    _write_metrics(gen_dir, "M1", "TEST", "ranking", 0.80, 0.90,
+                   filename="metrics_ablation_splitA.csv")
+    _write_metrics(oracle_dir, "M1", "TEST", "ranking", 0.80, 0.90,
+                   filename="metrics_ablation_splitA.csv")
+    _write_metrics(oracle_dir, "M1", "TEST", "ranking", 0.50, 0.90,
+                   filename="metrics_ablation_splitC.csv")
+    comp = cr.build_comparison(
+        cr.load_metrics_dir(gen_dir), cr.load_metrics_dir(oracle_dir), tolerance=0.05
+    )
+    assert len(comp) == 1
+    assert comp.iloc[0]["split_tag"] == "A"
+    assert abs(float(comp.iloc[0]["macro_f1_delta"])) < 1e-9
+
+
+def test_all_within_tol_false_when_no_valid_metric(tmp_path):
+    gen_dir = tmp_path / "gen"
+    oracle_dir = tmp_path / "oracle"
+    for d in (gen_dir, oracle_dir):
+        d.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame([{
+            "model": "M1", "split": "TEST", "eval_track": "ranking",
+            "acc": float("nan"), "macro_f1": float("nan"), "roc_auc": float("nan"),
+            "auc_pr": float("nan"), "tpr_at_1pct_fpr": float("nan"),
+            "tpr_at_5pct_fpr": float("nan"), "tpr_at_10pct_fpr": float("nan"),
+        }]).to_csv(d / "metrics_ablation_splitA.csv", index=False)
+    comp = cr.build_comparison(
+        cr.load_metrics_dir(gen_dir), cr.load_metrics_dir(oracle_dir), tolerance=0.05
+    )
+    assert len(comp) == 1
+    assert bool(comp.iloc[0]["all_within_tol"]) is False
+
+
+def test_build_comparison_empty_has_expected_columns():
+    comp = cr.build_comparison(pd.DataFrame(), pd.DataFrame(), tolerance=0.05)
+    assert "all_within_tol" in comp.columns
+    assert "model" in comp.columns
+
+
+def test_main_default_out_path_is_results_dir(tmp_path):
+    run = tmp_path / "run"
+    metrics_dir = run / "experiments" / "results" / "metrics"
+    _write_metrics(metrics_dir, "M1", "TEST", "ranking", 0.80, 0.90)
+    rc = cr.main([str(metrics_dir), "--oracle", str(metrics_dir)])
+    assert rc == 0
+    assert (run / "experiments" / "results" / "comparison.csv").exists()

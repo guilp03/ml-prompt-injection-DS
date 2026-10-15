@@ -10,13 +10,18 @@ METRIC_COLS = [
     "acc", "macro_f1", "auc_pr", "roc_auc",
     "tpr_at_1pct_fpr", "tpr_at_5pct_fpr", "tpr_at_10pct_fpr",
 ]
-KEY_COLS = ["model", "split", "eval_track", "ood_name"]
+KEY_COLS = ["model", "split", "eval_track", "ood_name", "split_tag"]
 SKIP_FILES = {"results_table_v2_repeatability.csv"}
 
 
 def parse_ood_from_name(path: Path) -> str | None:
     match = re.search(r"__ood-([A-Za-z0-9_]+)", path.stem)
     return match.group(1) if match else None
+
+
+def parse_split_tag_from_name(path: Path) -> str:
+    match = re.search(r"_split([A-Za-z])", path.stem, re.IGNORECASE)
+    return match.group(1).upper() if match else ""
 
 
 def load_metrics_dir(root: Path) -> pd.DataFrame:
@@ -33,6 +38,7 @@ def load_metrics_dir(root: Path) -> pd.DataFrame:
         if "ood_name" not in frame.columns:
             parsed = parse_ood_from_name(csv_path)
             frame["ood_name"] = parsed if parsed else ""
+        frame["split_tag"] = parse_split_tag_from_name(csv_path)
         frame["source_file"] = csv_path.name
         frames.append(frame)
     if not frames:
@@ -42,14 +48,23 @@ def load_metrics_dir(root: Path) -> pd.DataFrame:
         if key not in out.columns:
             out[key] = ""
         out[key] = out[key].fillna("").astype(str)
-    out["model"] = out["model"].astype(str)
-    out["split"] = out["split"].astype(str)
     return out
+
+
+def _comparison_columns() -> list[str]:
+    columns = list(KEY_COLS)
+    for metric in METRIC_COLS:
+        columns += [
+            f"{metric}_gen", f"{metric}_oracle",
+            f"{metric}_delta", f"{metric}_within_tol",
+        ]
+    columns.append("all_within_tol")
+    return columns
 
 
 def build_comparison(gen: pd.DataFrame, oracle: pd.DataFrame, tolerance: float) -> pd.DataFrame:
     if gen.empty or oracle.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=_comparison_columns())
     gen = gen[KEY_COLS + [c for c in METRIC_COLS if c in gen.columns]]
     oracle = oracle[KEY_COLS + [c for c in METRIC_COLS if c in oracle.columns]]
     gen = gen.drop_duplicates(subset=KEY_COLS, keep="last")
@@ -59,6 +74,7 @@ def build_comparison(gen: pd.DataFrame, oracle: pd.DataFrame, tolerance: float) 
     for _, record in merged.iterrows():
         row = {key: record[key] for key in KEY_COLS}
         all_ok = True
+        valid_count = 0
         for metric in METRIC_COLS:
             gen_col, or_col = f"{metric}_gen", f"{metric}_oracle"
             if gen_col not in merged.columns or or_col not in merged.columns:
@@ -72,7 +88,8 @@ def build_comparison(gen: pd.DataFrame, oracle: pd.DataFrame, tolerance: float) 
             row[f"{metric}_delta"] = round(delta, 4)
             row[f"{metric}_within_tol"] = within
             all_ok = all_ok and within
-        row["all_within_tol"] = all_ok
+            valid_count += 1
+        row["all_within_tol"] = valid_count > 0 and all_ok
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -110,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     out_path = (
         Path(args.out)
         if args.out
-        else Path(args.generated).resolve().parent.parent / "comparison.csv"
+        else Path(args.generated).resolve().parent / "comparison.csv"
     )
     comp.to_csv(out_path, index=False)
     print(summarize(comp, args.tolerance))
