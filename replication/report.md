@@ -61,7 +61,7 @@ Track `deployment_threshold`, agregado por família (run split A):
 
 **Hard-negative OOD (`ood_test_injection`)** — macro-F1:
 `M1_TFIDF_ONLY` **0.8589** > `M2` 0.7597 > `M3_IBVS_V2` 0.7468 >
-`M3_STRUCTURED` 0.7088 > `M3_IBVS_V1` 0.6828; híbridos 0.596–0.668;
+`M3_STRUCTURED` 0.7088 > `M3_IBVS_V1` 0.6828; híbridos 0.580–0.668;
 `SEM_LOGREG_BGE` 0.5786. Em ROC-AUC o `M1` também lidera com folga (0.9361
 vs. ≤0.805 dos demais).
 - **TF-IDF lidera o regime hard-negative** frente a todas as variantes IBVS e
