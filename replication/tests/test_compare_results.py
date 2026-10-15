@@ -116,3 +116,49 @@ def test_main_default_out_path_is_results_dir(tmp_path):
     rc = cr.main([str(metrics_dir), "--oracle", str(metrics_dir)])
     assert rc == 0
     assert (run / "experiments" / "results" / "comparison.csv").exists()
+
+
+def test_parse_split_tag_ignores_ood_suffix():
+    assert cr.parse_split_tag_from_name(
+        Path("metrics_ablation_splitA__ood-ood_test_injection.csv")
+    ) == "A"
+    assert cr.parse_split_tag_from_name(
+        Path("metrics_ablation__ood-ood_splitB.csv")
+    ) == ""
+
+
+def test_load_metrics_dir_preserves_native_split_tag(tmp_path):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame([{
+        "model": "M1", "split": "TEST", "eval_track": "ranking",
+        "split_tag": "C", "macro_f1": 0.5, "roc_auc": 0.6,
+    }]).to_csv(tmp_path / "metrics_custom.csv", index=False)
+    df = cr.load_metrics_dir(tmp_path)
+    assert (df["split_tag"] == "C").all()
+
+
+def test_load_metrics_dir_skips_aggregated_tables(tmp_path):
+    _write_metrics(tmp_path, "M1", "TEST", "ranking", 0.80, 0.90,
+                   filename="metrics_ablation_splitA.csv")
+    agg = pd.DataFrame([{
+        "model": "M1", "split": "TEST", "eval_track": "ranking",
+        "split_tag": "C", "macro_f1": 0.5, "roc_auc": 0.6,
+    }])
+    agg.to_csv(tmp_path / "results_table_custom.csv", index=False)
+    df = cr.load_metrics_dir(tmp_path)
+    assert set(df["source_file"]) == {"metrics_ablation_splitA.csv"}
+
+
+def test_build_comparison_no_match_has_expected_columns(tmp_path):
+    gen_dir = tmp_path / "gen"
+    oracle_dir = tmp_path / "oracle"
+    _write_metrics(gen_dir, "M1", "TEST", "ranking", 0.80, 0.90,
+                   filename="metrics_ablation_splitA.csv")
+    _write_metrics(oracle_dir, "M2", "TEST", "ranking", 0.80, 0.90,
+                   filename="metrics_ablation_splitA.csv")
+    comp = cr.build_comparison(
+        cr.load_metrics_dir(gen_dir), cr.load_metrics_dir(oracle_dir), tolerance=0.05
+    )
+    assert len(comp) == 0
+    assert "all_within_tol" in comp.columns
+    assert "model" in comp.columns

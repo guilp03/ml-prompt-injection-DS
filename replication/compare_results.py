@@ -11,7 +11,10 @@ METRIC_COLS = [
     "tpr_at_1pct_fpr", "tpr_at_5pct_fpr", "tpr_at_10pct_fpr",
 ]
 KEY_COLS = ["model", "split", "eval_track", "ood_name", "split_tag"]
-SKIP_FILES = {"results_table_v2_repeatability.csv"}
+
+
+def _is_skipped(path: Path) -> bool:
+    return path.name.startswith("results_table_")
 
 
 def parse_ood_from_name(path: Path) -> str | None:
@@ -20,14 +23,15 @@ def parse_ood_from_name(path: Path) -> str | None:
 
 
 def parse_split_tag_from_name(path: Path) -> str:
-    match = re.search(r"_split([A-Za-z])", path.stem, re.IGNORECASE)
+    head = path.stem.split("__")[0]
+    match = re.search(r"_split([A-Za-z])", head, re.IGNORECASE)
     return match.group(1).upper() if match else ""
 
 
 def load_metrics_dir(root: Path) -> pd.DataFrame:
     frames = []
     for csv_path in sorted(root.rglob("*.csv")):
-        if csv_path.name in SKIP_FILES:
+        if _is_skipped(csv_path):
             continue
         try:
             frame = pd.read_csv(csv_path)
@@ -38,7 +42,8 @@ def load_metrics_dir(root: Path) -> pd.DataFrame:
         if "ood_name" not in frame.columns:
             parsed = parse_ood_from_name(csv_path)
             frame["ood_name"] = parsed if parsed else ""
-        frame["split_tag"] = parse_split_tag_from_name(csv_path)
+        if "split_tag" not in frame.columns:
+            frame["split_tag"] = parse_split_tag_from_name(csv_path)
         frame["source_file"] = csv_path.name
         frames.append(frame)
     if not frames:
@@ -91,7 +96,7 @@ def build_comparison(gen: pd.DataFrame, oracle: pd.DataFrame, tolerance: float) 
             valid_count += 1
         row["all_within_tol"] = valid_count > 0 and all_ok
         rows.append(row)
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=_comparison_columns())
 
 
 def summarize(comp: pd.DataFrame, tolerance: float) -> str:
