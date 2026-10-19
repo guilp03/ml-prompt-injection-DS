@@ -37,7 +37,12 @@ if [[ "$*" == *"run_local.py"* ]]; then
     if [[ "$prev" == "--runs-dir" ]]; then runs_dir="$arg"; fi
     prev="$arg"
   done
-  if [[ "${STUB_HARNESS_STATUS:-0}" != "0" ]]; then exit "${STUB_HARNESS_STATUS}"; fi
+  if [[ "${STUB_HARNESS_STATUS:-0}" != "0" ]]; then
+    if [[ "${STUB_CREATE_ON_FAILURE:-0}" == "1" ]]; then
+      mkdir -p "$runs_dir/run-${STUB_RUN_ID:-1}"
+    fi
+    exit "${STUB_HARNESS_STATUS}"
+  fi
   mkdir -p "$runs_dir/run-${STUB_RUN_ID:-1}"
   exit 0
 fi
@@ -93,6 +98,7 @@ def test_run_compare_propagates_compare_failure_with_stale_output(tmp_path):
         tmp_path, f'run_compare "{run_dir}"', STUB_COMPARE_STATUS="7",
     )
     assert result.returncode == 7
+    assert not (run_dir / "comparison.csv").exists()
 
 
 def test_run_compare_rejects_empty_output(tmp_path):
@@ -112,14 +118,22 @@ def test_run_harness_preserves_failure_status(tmp_path):
     assert result.returncode == 7
 
 
+def test_run_harness_preserves_status_when_compare_succeeds(tmp_path):
+    result = _run_common(
+        tmp_path, "run_harness light --notebooks 04",
+        STUB_HARNESS_STATUS="5", STUB_CREATE_ON_FAILURE="1",
+    )
+    assert result.returncode == 5
+
+
 def test_run_harness_does_not_compare_stale_run(tmp_path):
     stale = tmp_path / "runs" / "A" / "light" / "run-old"
     stale.mkdir(parents=True)
     marker = stale / "comparison.csv"
-    marker.write_text("model\nM1\n", encoding="utf-8")
+    marker.write_text("model\nSTALE\n", encoding="utf-8")
     result = _run_common(
         tmp_path, "run_harness light --notebooks 04",
         STUB_HARNESS_STATUS="2",
     )
     assert result.returncode == 2
-    assert marker.exists()
+    assert marker.read_text(encoding="utf-8") == "model\nSTALE\n"
