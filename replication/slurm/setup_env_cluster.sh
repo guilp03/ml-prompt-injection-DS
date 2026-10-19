@@ -8,13 +8,21 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 VENV="${VENV:-${SCRATCH}/pids-repro}"
 
 if command -v module >/dev/null 2>&1; then
-  module load Python/3.10 || true
+  if ! module load Python/3.10; then
+    echo "[warn] falha ao carregar Python/3.10; usando ${PYTHON:-python3} do PATH" >&2
+  fi
 else
   echo "[warn] comando module ausente; usando ${PYTHON:-python3} do PATH" >&2
 fi
 
+PYTHON_BIN="${PYTHON:-python3}"
+if ! "${PYTHON_BIN}" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)'; then
+  echo "[error] Python >= 3.10 necessario (${PYTHON_BIN})" >&2
+  exit 2
+fi
+
 if [[ ! -f "${VENV}/bin/activate" ]]; then
-  "${PYTHON:-python3}" -m venv "${VENV}"
+  "${PYTHON_BIN}" -m venv "${VENV}"
 fi
 # shellcheck disable=SC1091
 source "${VENV}/bin/activate"

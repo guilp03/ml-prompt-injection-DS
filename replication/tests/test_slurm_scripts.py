@@ -126,6 +126,24 @@ def test_run_harness_preserves_status_when_compare_succeeds(tmp_path):
     assert result.returncode == 5
 
 
+def test_run_harness_success_runs_compare(tmp_path):
+    result = _run_common(
+        tmp_path, "run_harness light --notebooks 04",
+        STUB_HARNESS_STATUS="0", STUB_WRITE_COMPARISON="1",
+    )
+    run_dir = tmp_path / "runs" / "A" / "light" / "run-1"
+    assert result.returncode == 0
+    assert (run_dir / "comparison.csv").exists()
+
+
+def test_run_harness_fails_when_compare_fails(tmp_path):
+    result = _run_common(
+        tmp_path, "run_harness light --notebooks 04",
+        STUB_HARNESS_STATUS="0", STUB_COMPARE_STATUS="7",
+    )
+    assert result.returncode != 0
+
+
 def test_run_harness_does_not_compare_stale_run(tmp_path):
     stale = tmp_path / "runs" / "A" / "light" / "run-old"
     stale.mkdir(parents=True)
