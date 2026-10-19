@@ -63,6 +63,33 @@ def test_load_comparisons_skips_malformed_csv(tmp_path, capsys):
     assert "ignorando" in capsys.readouterr().err
 
 
+def test_load_comparisons_skips_missing_key_columns(tmp_path, capsys):
+    _write_comparison(tmp_path / "A" / "light" / "run1" / "comparison.csv", "M1", 0.8)
+    bad = tmp_path / "A" / "tx" / "run1" / "comparison.csv"
+    bad.parent.mkdir(parents=True)
+    pd.DataFrame([{"model": "M2", "macro_f1_gen": 0.9}]).to_csv(bad, index=False)
+
+    frame = agg.load_comparisons(tmp_path)
+
+    assert len(frame) == 1
+    assert frame.iloc[0]["run_family"] == "light"
+    assert "colunas ausentes" in capsys.readouterr().err
+
+
+def test_build_summary_handles_missing_all_within_tol():
+    comp = pd.DataFrame([{
+        "model": "M1", "split": "ID TEST", "eval_track": "ranking",
+        "ood_name": "", "split_tag": "A",
+        "run_split": "A", "run_family": "light",
+        "macro_f1_within_tol": True,
+    }])
+
+    summary = agg.build_summary(comp)
+
+    assert "all_within_tol ausente" in summary
+    assert "| A | 1 | n/d |" in summary
+
+
 def test_build_summary_contains_counts(tmp_path):
     _write_comparison(tmp_path / "A" / "light" / "run1" / "comparison.csv", "M1", 0.8)
     _write_comparison(tmp_path / "A" / "tx" / "run1" / "comparison.csv", "M2", 0.9)

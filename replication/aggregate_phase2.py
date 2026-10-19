@@ -37,6 +37,13 @@ def load_comparisons(runs_root: Path) -> pd.DataFrame:
             continue
         if frame.empty:
             continue
+        missing = [col for col in KEY_COLS if col not in frame.columns]
+        if missing:
+            print(
+                f"[warn] ignorando {path}: colunas ausentes {missing}",
+                file=sys.stderr,
+            )
+            continue
         split, family = extract_split_family(path, runs_root)
         frame["run_split"] = split
         frame["run_family"] = family
@@ -60,11 +67,14 @@ def build_summary(comp: pd.DataFrame) -> str:
     if comp.empty:
         return "\n".join(lines)
 
-    within = int(comp["all_within_tol"].sum())
+    lines += ["## Geral", ""]
+    if "all_within_tol" in comp.columns:
+        within = int(comp["all_within_tol"].sum())
+        lines.append(f"- Todos dentro da tolerância: {within}/{len(comp)}")
+    else:
+        lines.append("- all_within_tol ausente")
     lines += [
-        "## Geral", "",
-        f"- Todos dentro da tolerância: {within}/{len(comp)}", "",
-        "## Por métrica", "",
+        "", "## Por métrica", "",
         "| Métrica | Dentro | Total |",
         "|---|---|---|",
     ]
@@ -82,10 +92,13 @@ def build_summary(comp: pd.DataFrame) -> str:
         lines += ["", f"## {title}", "", f"| {col} | Pares | Todos dentro |",
                   "|---|---|---|"]
         for value, group in comp.groupby(col, dropna=False):
-            label = value if value else "-"
+            label = "-" if pd.isna(value) or value == "" else value
+            group_within = (
+                int(group["all_within_tol"].sum())
+                if "all_within_tol" in group.columns else "n/d"
+            )
             lines.append(
-                f"| {label} | {len(group)} | "
-                f"{int(group['all_within_tol'].sum())} |"
+                f"| {label} | {len(group)} | {group_within} |"
             )
 
     return "\n".join(lines) + "\n"
@@ -106,12 +119,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    summary = build_summary(comp)
+
     out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     table_path = out_dir / "phase2_comparison_all.csv"
     summary_path = out_dir / "phase2_summary.md"
-    comp.to_csv(table_path, index=False)
-    summary_path.write_text(build_summary(comp))
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        comp.to_csv(table_path, index=False)
+        summary_path.write_text(summary, encoding="utf-8")
+    except OSError as exc:
+        print(f"[error] falha ao escrever resultados: {exc}", file=sys.stderr)
+        return 1
 
     print(f"Pares: {len(comp)}")
     print(f"Tabela: {table_path}")
