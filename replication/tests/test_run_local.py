@@ -164,11 +164,13 @@ def test_build_run_id_rejects_invalid_label():
         rl.build_run_id("A", label="bad label")
 
 
-def test_run_selects_only_requested_notebooks(tmp_path, monkeypatch):
+def test_run_selects_only_requested_notebooks(tmp_path, monkeypatch, capsys):
     calls = _capture(monkeypatch)
 
-    rl.run(_make_args(tmp_path, notebooks="07,08", label="tx"))
+    rc = rl.run(_make_args(tmp_path, notebooks="07,08", label="tx"))
 
+    assert rc == 0
+    assert "_A_tx" in capsys.readouterr().out
     notebooks = [c[0][-1] for c in calls if c[0][-1].endswith(".ipynb")]
     assert notebooks == [
         "notebooks/07_transformer_baselines.ipynb",
@@ -176,8 +178,24 @@ def test_run_selects_only_requested_notebooks(tmp_path, monkeypatch):
     ]
 
 
-def test_main_rejects_notebooks_with_smoke(monkeypatch):
-    with pytest.raises(SystemExit):
+def test_main_rejects_notebooks_with_smoke(capsys):
+    with pytest.raises(SystemExit) as exc:
         rl.main([
             "A", "--notebooks", "07,08", "--smoke-transformers", "--dry-run",
         ])
+    assert exc.value.code == 2
+    assert "use --notebooks ou --smoke-transformers" in capsys.readouterr().err
+
+
+def test_main_rejects_unknown_notebook(capsys):
+    with pytest.raises(SystemExit) as exc:
+        rl.main(["A", "--notebooks", "99", "--dry-run"])
+    assert exc.value.code == 2
+    assert "unknown notebook" in capsys.readouterr().err
+
+
+def test_main_rejects_invalid_label(capsys):
+    with pytest.raises(SystemExit) as exc:
+        rl.main(["A", "--label", "bad label", "--dry-run"])
+    assert exc.value.code == 2
+    assert "invalid label" in capsys.readouterr().err
