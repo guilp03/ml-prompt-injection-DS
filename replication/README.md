@@ -36,3 +36,10 @@ Gera `comparison.csv` e imprime um resumo dentro/fora da tolerância.
 - `compare_results.py` — diff de métricas geradas vs. oráculo.
 - `report.md` — relatório de reprodução.
 - `NOTES.md` — decisões de adaptação e desvios.
+
+## Fase 2 (cluster APUANA)
+
+O roteiro de execução no cluster está em `replication/slurm/README.md`.
+O tooling adiciona `--notebooks`/`--label` ao harness, scripts SLURM para os
+jobs `light` (`04→06`) e `tx` (`07→08`) e o agregador
+`replication/aggregate_phase2.py`.
