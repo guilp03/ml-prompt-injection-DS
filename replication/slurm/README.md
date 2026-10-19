@@ -13,6 +13,7 @@
 cd "$SCRATCH/ml_PIDS"
 export SCRATCH="$SCRATCH"
 bash replication/slurm/setup_env_cluster.sh
+source "$SCRATCH/pids-repro/bin/activate"
 python -m pytest -q
 ```
 
