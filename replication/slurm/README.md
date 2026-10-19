@@ -10,8 +10,8 @@
 ## 2. Ambiente (uma vez, no nó de login)
 
 ```bash
-cd "$SCRATCH/ml_PIDS"
 : "${SCRATCH:?defina SCRATCH}"
+cd "$SCRATCH/ml_PIDS"
 bash replication/slurm/setup_env_cluster.sh
 source "$SCRATCH/pids-repro/bin/activate"
 python -m pytest -q
@@ -79,8 +79,10 @@ O split A já rodou no piloto; reenviá-lo criaria runs duplicados.
 PARTITION_LIGHT=short-simple PARTITION_TX=short-complex \
 WALLTIME_LIGHT=02:00:00 WALLTIME_TX=04:00:00 \
 GRES_TX=gpu:1 CPUS_PER_TASK=8 MEM=32G \
-  bash replication/slurm/submit_phase2.sh A B C
+  bash replication/slurm/submit_phase2.sh B C
 ```
+
+O split A já rodou no piloto; reenviá-lo criaria runs duplicados.
 
 Valide os recursos antes do piloto com `sbatch --test-only` e as mesmas flags
 do exemplo de retomada da seção 7.
