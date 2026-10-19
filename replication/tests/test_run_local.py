@@ -1,5 +1,6 @@
 import argparse
 import sys
+import pytest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -125,3 +126,27 @@ def test_run_passes_correct_env(tmp_path, monkeypatch):
     for _cmd, _cwd, env in calls:
         assert env["SPLIT_TAG"] == "B"
         assert env["WRITE_MINIMAL_OUTPUTS"] == "1"
+
+
+def test_resolve_notebooks_by_number():
+    assert rl.resolve_notebooks("04,05,06", False) == rl.CORE_NOTEBOOKS
+    assert rl.resolve_notebooks("07,08", False) == rl.TRANSFORMER_NOTEBOOKS
+
+
+def test_resolve_notebooks_accepts_full_names_and_dedupes():
+    assert rl.resolve_notebooks(
+        "07_transformer_baselines.ipynb,08", False
+    ) == rl.TRANSFORMER_NOTEBOOKS
+    assert rl.resolve_notebooks("04,04", False) == [rl.CORE_NOTEBOOKS[0]]
+
+
+def test_resolve_notebooks_default_and_smoke():
+    assert rl.resolve_notebooks(None, False) == rl.CORE_NOTEBOOKS
+    assert rl.resolve_notebooks(None, True) == rl.ALL_NOTEBOOKS
+
+
+def test_resolve_notebooks_rejects_unknown():
+    with pytest.raises(ValueError, match="unknown notebook"):
+        rl.resolve_notebooks("99", False)
+    with pytest.raises(ValueError, match="empty"):
+        rl.resolve_notebooks("04,,05", False)

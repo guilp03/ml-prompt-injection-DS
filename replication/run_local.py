@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -20,7 +21,31 @@ TRANSFORMER_NOTEBOOKS = [
     "07_transformer_baselines.ipynb",
     "08_roberta_ibvs_hybrid.ipynb",
 ]
+ALL_NOTEBOOKS = CORE_NOTEBOOKS + TRANSFORMER_NOTEBOOKS
+NOTEBOOK_BY_NUMBER = {name[:2]: name for name in ALL_NOTEBOOKS}
 EXCLUDED_TOP_LEVEL = {".git", "replication", "docs", "experiments"}
+
+
+def resolve_notebooks(selection: str | None,
+                      smoke_transformers: bool) -> list[str]:
+    if selection is None:
+        chosen = list(CORE_NOTEBOOKS)
+        if smoke_transformers:
+            chosen += TRANSFORMER_NOTEBOOKS
+        return chosen
+
+    chosen: list[str] = []
+    for raw in selection.split(","):
+        token = raw.strip()
+        if not token:
+            raise ValueError("--notebooks contains an empty entry")
+        number = token[:2]
+        name = NOTEBOOK_BY_NUMBER.get(number)
+        if name is None or token not in {number, name}:
+            raise ValueError(f"unknown notebook: {token}")
+        if name not in chosen:
+            chosen.append(name)
+    return chosen
 
 
 def build_run_id(split_tag: str, now: float | None = None) -> str:
