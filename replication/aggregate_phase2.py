@@ -21,7 +21,7 @@ def extract_split_family(comparison_path: Path,
     except ValueError:
         return "", ""
     parts = rel.parts
-    if len(parts) < 3:
+    if len(parts) != 4:
         return "", ""
     return parts[0], parts[1]
 

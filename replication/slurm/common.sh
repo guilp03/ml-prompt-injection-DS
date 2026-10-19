@@ -46,7 +46,7 @@ preflight_common() {
     echo "[error] oraculo ausente: ${oracle}" >&2
     exit 2
   fi
-  if ! "${PY}" -c "import pandas, sklearn, numpy, nbconvert" >/dev/null 2>&1; then
+  if ! "${PY}" -c "import pandas, sklearn, numpy, nbconvert, torch, transformers, sentence_transformers" >/dev/null 2>&1; then
     echo "[error] dependencias Python ausentes no venv ${VENV}" >&2
     exit 2
   fi

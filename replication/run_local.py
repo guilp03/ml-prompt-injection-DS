@@ -124,7 +124,7 @@ def run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Harness de reprodução local (Fase 1).")
+    parser = argparse.ArgumentParser(description="Harness de reprodução local (Fases 1 e 2).")
     parser.add_argument("split_tag", help="A, B ou C")
     parser.add_argument("--smoke-transformers", action="store_true",
                         help="Também executar notebooks 07 e 08 (lento em CPU).")

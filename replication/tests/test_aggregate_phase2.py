@@ -33,6 +33,13 @@ def test_extract_split_family(tmp_path):
     assert agg.extract_split_family(path, tmp_path) == ("A", "light")
 
 
+def test_extract_split_family_requires_run_dir(tmp_path):
+    path = tmp_path / "A" / "light" / "comparison.csv"
+    path.parent.mkdir(parents=True)
+    path.touch()
+    assert agg.extract_split_family(path, tmp_path) == ("", "")
+
+
 def test_load_comparisons_adds_path_columns(tmp_path):
     _write_comparison(tmp_path / "A" / "light" / "run1" / "comparison.csv", "M1", 0.8)
     frame = agg.load_comparisons(tmp_path)
