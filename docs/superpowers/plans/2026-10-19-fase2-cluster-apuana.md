@@ -1252,3 +1252,17 @@ Expected: apenas arquivos intencionais. Se houver algo não commitado:
 git add replication/
 git commit -m "chore: validacao final do tooling da fase 2"
 ```
+
+## Implementação — desvios do plano
+
+Esta seção registra as mudanças feitas durante a execução em relação às tarefas
+originais, todas motivadas por revisões de especificação/qualidade.
+
+- **Task 3:** validação de `--notebooks`/`--label` movida para antes de qualquer efeito colateral; `main()` pré-valida e não captura mais `ValueError` de `run()`; testes de CLI cobrindo `unknown notebook`, `invalid label`, exclusão mútua e `_A_tx`.
+- **Task 4:** `except` restrito a `OSError`/`ParserError`/`EmptyDataError`/`UnicodeDecodeError`; teste de CSV malformado.
+- **Task 5:** guardas para `all_within_tol` e colunas-chave ausentes; resumo construído antes da escrita, UTF-8 explícito e `OSError` retornando 1; `load_comparisons` ignora arquivos fora de `runs/<A|B|C>/<light|tx>/<run_id>/comparison.csv`.
+- **Task 6:** `run_compare` remove `comparison.csv` antigo e propaga falhas; `run_harness` valida label, seleciona apenas run dirs novos (snapshot antes/depois) e preserva o status; preflight usa o oráculo do split ativo e verifica `nbconvert`; lock do ambiente é atômico; `setup_env_cluster.sh` valida Python >= 3.10; testes comportamentais com stub de Python/venv.
+- **Task 8:** splits são normalizados/validados antes de qualquer `sbatch`; o ID do job leve é impresso imediatamente; falha do job `tx` informa o leve já submetido; `RUNS_ROOT` com vírgula/newline é rejeitado.
+- **Task 9:** o cache HF baixa os pesos do BGE e dos dois backbones (não só tokenizers); após o piloto, a execução completa usa `B C`; o venv é ativado antes da agregação; a coleta inclui `env-lock.txt`; `SCRATCH` é exportado; exemplo concreto de retry por `sbatch`.
+
+Commits de implementação: `ca579de`, `755d98e`, `4c81fef`, `0c5dfa4`, `4a3cb17`, `b81ef69`, `9e6b741`, `956fbf6`, `79c55f1`, `5595ce3`, `831672e`, `61b2f52`, `8cbc941`, `9967aee`, `b7f06ba`, `4d4b1e7`, `8c2aad3`, `691c625`, `e4dc4ec`, `a1dabd5`, `fe7fbd0`, `db0b2f5`.

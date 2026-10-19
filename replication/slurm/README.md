@@ -110,6 +110,8 @@ O `$SCRATCH` é limpo após 90 dias.
   a partir da raiz do repo:
 
   ```bash
+  export SCRATCH="${SCRATCH:?defina SCRATCH}"
+  export HF_HOME="${HF_HOME:-$SCRATCH/hf-cache}"
   export SPLIT_TAG=B
   sbatch --job-name="pids-tx-B" \
     --partition=short-complex --gres=gpu:1 \
