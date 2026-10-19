@@ -48,10 +48,20 @@ def resolve_notebooks(selection: str | None,
     return chosen
 
 
-def build_run_id(split_tag: str, now: float | None = None) -> str:
+LABEL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def build_run_id(split_tag: str, now: float | None = None,
+                 label: str | None = None) -> str:
     stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime(
         now if now is not None else time.time()))
-    return f"{stamp}_{split_tag.strip().upper()}"
+    run_id = f"{stamp}_{split_tag.strip().upper()}"
+    if label:
+        cleaned = label.strip()
+        if not LABEL_RE.fullmatch(cleaned):
+            raise ValueError(f"invalid label: {label!r}")
+        run_id = f"{run_id}_{cleaned}"
+    return run_id
 
 
 def copy_reference_tree(src_root: Path, dest_root: Path,

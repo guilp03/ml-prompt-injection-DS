@@ -150,3 +150,13 @@ def test_resolve_notebooks_rejects_unknown():
         rl.resolve_notebooks("99", False)
     with pytest.raises(ValueError, match="empty"):
         rl.resolve_notebooks("04,,05", False)
+
+
+def test_build_run_id_with_label():
+    assert rl.build_run_id("a", now=0, label="light") == \
+        "19700101-000000_A_light"
+
+
+def test_build_run_id_rejects_invalid_label():
+    with pytest.raises(ValueError, match="invalid label"):
+        rl.build_run_id("A", label="bad label")
