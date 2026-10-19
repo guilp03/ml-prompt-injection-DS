@@ -56,7 +56,11 @@ if [[ "$*" == *"compare_results.py"* ]]; then
   if [[ "${STUB_COMPARE_STATUS:-0}" != "0" ]]; then exit "${STUB_COMPARE_STATUS}"; fi
   if [[ "${STUB_WRITE_COMPARISON:-1}" == "1" ]]; then
     mkdir -p "$(dirname "$out")"
-    printf 'model\\nM1\\n' > "$out"
+    if [[ "${STUB_COMPARISON_HEADER_ONLY:-0}" == "1" ]]; then
+      printf 'model\\n' > "$out"
+    else
+      printf 'model\\nM1\\n' > "$out"
+    fi
   fi
   exit 0
 fi
@@ -105,7 +109,8 @@ def test_run_compare_rejects_empty_output(tmp_path):
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     result = _run_common(
-        tmp_path, f'run_compare "{run_dir}"', STUB_WRITE_COMPARISON="0",
+        tmp_path, f'run_compare "{run_dir}"',
+        STUB_WRITE_COMPARISON="1", STUB_COMPARISON_HEADER_ONLY="1",
     )
     assert result.returncode != 0
 
@@ -123,7 +128,9 @@ def test_run_harness_preserves_status_when_compare_succeeds(tmp_path):
         tmp_path, "run_harness light --notebooks 04",
         STUB_HARNESS_STATUS="5", STUB_CREATE_ON_FAILURE="1",
     )
+    run_dir = tmp_path / "runs" / "A" / "light" / "run-1"
     assert result.returncode == 5
+    assert (run_dir / "comparison.csv").exists()
 
 
 def test_run_harness_success_runs_compare(tmp_path):
