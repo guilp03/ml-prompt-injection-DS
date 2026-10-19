@@ -11,6 +11,10 @@ Registrar os comandos de submissão, os job IDs e o walltime observado de cada j
 Inserir `replication/phase2/phase2_summary.md` e destacar, por split e família,
 os pares fora de ±0.05 em `macro_f1` e as métricas de baixo FPR.
 
+Confirmar que os seis jobs e todos os splits A/B/C concluíram. Além de
+`macro_f1` e das métricas de baixo FPR, reportar a proximidade de
+`auc_pr`/`roc_auc` em relação ao oráculo.
+
 ## Conclusões
 Preencher com a verificação de:
 - RoBERTa+IBVS melhora low-FPR?
