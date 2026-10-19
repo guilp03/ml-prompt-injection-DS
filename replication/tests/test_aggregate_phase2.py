@@ -76,6 +76,20 @@ def test_load_comparisons_skips_missing_key_columns(tmp_path, capsys):
     assert "colunas ausentes" in capsys.readouterr().err
 
 
+def test_load_comparisons_ignores_non_phase2_layout(tmp_path, capsys):
+    _write_comparison(tmp_path / "A" / "light" / "run1" / "comparison.csv", "M1", 0.8)
+    _write_comparison(
+        tmp_path / "20261015-190126_A" / "experiments" / "results" / "comparison.csv",
+        "M2", 0.7,
+    )
+
+    frame = agg.load_comparisons(tmp_path)
+
+    assert len(frame) == 1
+    assert frame.iloc[0]["run_family"] == "light"
+    assert "fora do layout da fase 2" in capsys.readouterr().err
+
+
 def test_build_summary_handles_missing_all_within_tol():
     comp = pd.DataFrame([{
         "model": "M1", "split": "ID TEST", "eval_track": "ranking",

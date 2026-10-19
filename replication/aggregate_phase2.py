@@ -45,6 +45,12 @@ def load_comparisons(runs_root: Path) -> pd.DataFrame:
             )
             continue
         split, family = extract_split_family(path, runs_root)
+        if split not in {"A", "B", "C"} or family not in {"light", "tx"}:
+            print(
+                f"[warn] ignorando {path}: fora do layout da fase 2",
+                file=sys.stderr,
+            )
+            continue
         frame["run_split"] = split
         frame["run_family"] = family
         frame["source_comparison"] = str(path.relative_to(runs_root))
