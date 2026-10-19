@@ -61,3 +61,31 @@ def test_load_comparisons_skips_malformed_csv(tmp_path, capsys):
     assert len(frame) == 1
     assert frame.iloc[0]["run_family"] == "light"
     assert "ignorando" in capsys.readouterr().err
+
+
+def test_build_summary_contains_counts(tmp_path):
+    _write_comparison(tmp_path / "A" / "light" / "run1" / "comparison.csv", "M1", 0.8)
+    _write_comparison(tmp_path / "A" / "tx" / "run1" / "comparison.csv", "M2", 0.9)
+    summary = agg.build_summary(agg.deduplicate(agg.load_comparisons(tmp_path)))
+    assert "Pares comparáveis: 2" in summary
+    assert "| A | 2 | 2 |" in summary
+
+
+def test_main_writes_outputs(tmp_path):
+    runs = tmp_path / "runs"
+    out = tmp_path / "phase2"
+    _write_comparison(runs / "A" / "light" / "run1" / "comparison.csv", "M1", 0.8)
+    rc = agg.main(["--runs-root", str(runs), "--out-dir", str(out)])
+    assert rc == 0
+    assert (out / "phase2_comparison_all.csv").exists()
+    assert (out / "phase2_summary.md").exists()
+    table = pd.read_csv(out / "phase2_comparison_all.csv")
+    assert set(["run_split", "run_family"]).issubset(table.columns)
+
+
+def test_main_empty_returns_nonzero(tmp_path):
+    rc = agg.main([
+        "--runs-root", str(tmp_path / "empty"),
+        "--out-dir", str(tmp_path / "phase2"),
+    ])
+    assert rc == 1

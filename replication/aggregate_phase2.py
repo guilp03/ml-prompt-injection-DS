@@ -53,3 +53,71 @@ def deduplicate(comp: pd.DataFrame) -> pd.DataFrame:
     return comp.drop_duplicates(
         subset=KEY_COLS + PATH_COLS, keep="last"
     ).reset_index(drop=True)
+
+
+def build_summary(comp: pd.DataFrame) -> str:
+    lines = ["# Resumo da Fase 2", "", f"Pares comparáveis: {len(comp)}", ""]
+    if comp.empty:
+        return "\n".join(lines)
+
+    within = int(comp["all_within_tol"].sum())
+    lines += [
+        "## Geral", "",
+        f"- Todos dentro da tolerância: {within}/{len(comp)}", "",
+        "## Por métrica", "",
+        "| Métrica | Dentro | Total |",
+        "|---|---|---|",
+    ]
+    for metric in METRIC_COLS:
+        col = f"{metric}_within_tol"
+        if col not in comp.columns:
+            continue
+        valid = comp[col].dropna()
+        lines.append(f"| {metric} | {int(valid.sum())} | {len(valid)} |")
+
+    for title, col in (
+        ("Por split da execução", "run_split"),
+        ("Por família", "run_family"),
+    ):
+        lines += ["", f"## {title}", "", f"| {col} | Pares | Todos dentro |",
+                  "|---|---|---|"]
+        for value, group in comp.groupby(col, dropna=False):
+            label = value if value else "-"
+            lines.append(
+                f"| {label} | {len(group)} | "
+                f"{int(group['all_within_tol'].sum())} |"
+            )
+
+    return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Consolida comparison.csv da Fase 2.")
+    parser.add_argument("--runs-root", default="replication/runs")
+    parser.add_argument("--out-dir", default="replication/phase2")
+    args = parser.parse_args(argv)
+
+    comp = deduplicate(load_comparisons(Path(args.runs_root)))
+    if comp.empty:
+        print(
+            f"[error] nenhum comparison.csv com linhas em {args.runs_root}",
+            file=sys.stderr,
+        )
+        return 1
+
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    table_path = out_dir / "phase2_comparison_all.csv"
+    summary_path = out_dir / "phase2_summary.md"
+    comp.to_csv(table_path, index=False)
+    summary_path.write_text(build_summary(comp))
+
+    print(f"Pares: {len(comp)}")
+    print(f"Tabela: {table_path}")
+    print(f"Resumo: {summary_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
