@@ -48,3 +48,16 @@ def test_deduplicate_keeps_last(tmp_path):
     frame = agg.deduplicate(agg.load_comparisons(tmp_path))
     assert len(frame) == 1
     assert frame.iloc[0]["macro_f1_gen"] == 0.9
+
+
+def test_load_comparisons_skips_malformed_csv(tmp_path, capsys):
+    _write_comparison(tmp_path / "A" / "light" / "run1" / "comparison.csv", "M1", 0.8)
+    bad = tmp_path / "A" / "tx" / "run1" / "comparison.csv"
+    bad.parent.mkdir(parents=True)
+    bad.write_text('a,b\n"unterminated,2')
+
+    frame = agg.load_comparisons(tmp_path)
+
+    assert len(frame) == 1
+    assert frame.iloc[0]["run_family"] == "light"
+    assert "ignorando" in capsys.readouterr().err

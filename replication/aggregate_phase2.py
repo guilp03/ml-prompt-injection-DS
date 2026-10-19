@@ -31,7 +31,8 @@ def load_comparisons(runs_root: Path) -> pd.DataFrame:
     for path in sorted(runs_root.rglob("comparison.csv")):
         try:
             frame = pd.read_csv(path)
-        except Exception as exc:
+        except (OSError, pd.errors.ParserError,
+                pd.errors.EmptyDataError, UnicodeDecodeError) as exc:
             print(f"[warn] ignorando {path}: {exc}", file=sys.stderr)
             continue
         if frame.empty:
