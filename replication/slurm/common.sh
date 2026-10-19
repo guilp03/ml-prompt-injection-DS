@@ -35,16 +35,18 @@ processed_file_for_split() {
 }
 
 preflight_common() {
-  local processed="data/processed/$(processed_file_for_split)"
+  local processed
+  processed="data/processed/$(processed_file_for_split)"
   if [[ ! -f "${REPO_ROOT}/${processed}" ]]; then
     echo "[error] arquivo ausente: ${processed}" >&2
     exit 2
   fi
-  if [[ ! -f "${REPO_ROOT}/experiments/results/metrics/metrics_ablation_splitA.csv" ]]; then
-    echo "[error] oraculo ausente em experiments/results/metrics" >&2
+  local oracle="experiments/results/metrics/metrics_ablation_split${SPLIT_TAG}.csv"
+  if [[ ! -f "${REPO_ROOT}/${oracle}" ]]; then
+    echo "[error] oraculo ausente: ${oracle}" >&2
     exit 2
   fi
-  if ! "${PY}" -c "import pandas, sklearn, numpy" >/dev/null 2>&1; then
+  if ! "${PY}" -c "import pandas, sklearn, numpy, nbconvert" >/dev/null 2>&1; then
     echo "[error] dependencias Python ausentes no venv ${VENV}" >&2
     exit 2
   fi
@@ -55,11 +57,12 @@ preflight_common() {
 run_compare() {
   local run_dir="$1"
   local out="${run_dir}/comparison.csv"
+  rm -f "${out}"
   "${PY}" "${REPO_ROOT}/replication/compare_results.py" \
     "${run_dir}/experiments/results/metrics" \
     --oracle "${REPO_ROOT}/experiments/results/metrics" \
-    --out "${out}"
-  "${PY}" - "${out}" <<'PY'
+    --out "${out}" || return $?
+  "${PY}" - "${out}" <<'PY' || return $?
 import sys
 
 import pandas as pd
@@ -75,9 +78,15 @@ PY
 run_harness() {
   local label="$1"
   shift
+  if [[ ! "${label}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "[error] label invalido: ${label}" >&2
+    exit 2
+  fi
   local family_runs="${RUNS_ROOT}/${SPLIT_TAG}/${label}"
   local status=0
+  local before after new_dirs run_dir
   mkdir -p "${family_runs}"
+  before="$(find "${family_runs}" -mindepth 1 -maxdepth 1 -type d | sort)"
 
   set +e
   "${PY}" "${REPO_ROOT}/replication/run_local.py" "${SPLIT_TAG}" \
@@ -85,12 +94,14 @@ run_harness() {
   status=$?
   set -e
 
-  local run_dir
-  run_dir="$(find "${family_runs}" -mindepth 1 -maxdepth 1 -type d \
-    | sort | tail -n 1)"
+  after="$(find "${family_runs}" -mindepth 1 -maxdepth 1 -type d | sort)"
+  new_dirs="$(comm -13 <(printf '%s\n' "${before}") \
+    <(printf '%s\n' "${after}") | sed '/^$/d')"
+  run_dir="$(printf '%s\n' "${new_dirs}" | tail -n 1)"
   if [[ -z "${run_dir}" ]]; then
-    echo "[error] nenhum run dir em ${family_runs}" >&2
-    exit 1
+    echo "[error] nenhum run dir novo em ${family_runs}" >&2
+    [[ "${status}" -ne 0 ]] || status=1
+    exit "${status}"
   fi
   if ! run_compare "${run_dir}"; then
     if [[ "${status}" -eq 0 ]]; then

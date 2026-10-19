@@ -9,9 +9,11 @@ VENV="${VENV:-${SCRATCH}/pids-repro}"
 
 if command -v module >/dev/null 2>&1; then
   module load Python/3.10 || true
+else
+  echo "[warn] comando module ausente; usando ${PYTHON:-python3} do PATH" >&2
 fi
 
-if [[ ! -d "${VENV}" ]]; then
+if [[ ! -f "${VENV}/bin/activate" ]]; then
   "${PYTHON:-python3}" -m venv "${VENV}"
 fi
 # shellcheck disable=SC1091
@@ -27,7 +29,9 @@ print(f"[torch] {torch.__version__} cuda_available={torch.cuda.is_available()}")
 PY
 
 mkdir -p "${REPO_ROOT}/replication/runs"
-python -m pip freeze > "${REPO_ROOT}/replication/runs/env-lock.txt"
+python -m pip freeze > "${REPO_ROOT}/replication/runs/env-lock.txt.tmp"
+mv "${REPO_ROOT}/replication/runs/env-lock.txt.tmp" \
+  "${REPO_ROOT}/replication/runs/env-lock.txt"
 echo "[ok] ambiente em ${VENV}"
 echo "[ok] lock em ${REPO_ROOT}/replication/runs/env-lock.txt"
 echo "[next] export HF_HOME=${SCRATCH}/hf-cache"
