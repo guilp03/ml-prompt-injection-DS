@@ -103,7 +103,7 @@ def run_command(cmd: list[str], cwd: Path, env: dict[str, str],
 
 
 def run(args: argparse.Namespace) -> int:
-    run_id = build_run_id(args.split_tag)
+    run_id = build_run_id(args.split_tag, label=args.label)
     dest = Path(args.runs_dir) / run_id
     print(f"Run id:  {run_id}")
     print(f"Run dir: {dest}")
@@ -115,9 +115,7 @@ def run(args: argparse.Namespace) -> int:
     if not args.skip_pytest:
         run_command([sys.executable, "-m", "pytest", "-q"], dest, env, args.dry_run)
 
-    notebooks = list(CORE_NOTEBOOKS)
-    if args.smoke_transformers:
-        notebooks += TRANSFORMER_NOTEBOOKS
+    notebooks = resolve_notebooks(args.notebooks, args.smoke_transformers)
     for notebook in notebooks:
         run_command(notebook_command(notebook), dest, env, args.dry_run)
 
@@ -130,6 +128,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("split_tag", help="A, B ou C")
     parser.add_argument("--smoke-transformers", action="store_true",
                         help="Também executar notebooks 07 e 08 (lento em CPU).")
+    parser.add_argument("--notebooks", default=None,
+                        help="Lista separada por vírgula (ex.: 04,05,06).")
+    parser.add_argument("--label", default=None,
+                        help="Sufixo do run_id (ex.: light, tx).")
     parser.add_argument("--minimal-outputs", action="store_true",
                         help="Usar WRITE_MINIMAL_OUTPUTS=1 (padrão: outputs completos).")
     parser.add_argument("--skip-pytest", action="store_true")
@@ -139,7 +141,12 @@ def main(argv: list[str] | None = None) -> int:
     args.split_tag = args.split_tag.strip().upper()
     if args.split_tag not in {"A", "B", "C"}:
         parser.error("split_tag deve ser A, B ou C")
-    return run(args)
+    if args.notebooks is not None and args.smoke_transformers:
+        parser.error("use --notebooks ou --smoke-transformers, não ambos")
+    try:
+        return run(args)
+    except ValueError as exc:
+        parser.error(str(exc))
 
 
 if __name__ == "__main__":

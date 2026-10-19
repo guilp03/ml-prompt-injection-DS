@@ -17,6 +17,8 @@ def _make_args(tmp_path, **overrides):
         skip_pytest=False,
         dry_run=True,
         runs_dir=str(tmp_path),
+        notebooks=None,
+        label=None,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -160,3 +162,22 @@ def test_build_run_id_with_label():
 def test_build_run_id_rejects_invalid_label():
     with pytest.raises(ValueError, match="invalid label"):
         rl.build_run_id("A", label="bad label")
+
+
+def test_run_selects_only_requested_notebooks(tmp_path, monkeypatch):
+    calls = _capture(monkeypatch)
+
+    rl.run(_make_args(tmp_path, notebooks="07,08", label="tx"))
+
+    notebooks = [c[0][-1] for c in calls if c[0][-1].endswith(".ipynb")]
+    assert notebooks == [
+        "notebooks/07_transformer_baselines.ipynb",
+        "notebooks/08_roberta_ibvs_hybrid.ipynb",
+    ]
+
+
+def test_main_rejects_notebooks_with_smoke(monkeypatch):
+    with pytest.raises(SystemExit):
+        rl.main([
+            "A", "--notebooks", "07,08", "--smoke-transformers", "--dry-run",
+        ])
