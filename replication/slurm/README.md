@@ -90,6 +90,19 @@ disponíveis:
 module avail 2>&1 | grep -i python
 ```
 
+Se o nome do módulo não for um dos que o script tenta, fixe-o explicitamente:
+
+```bash
+export PYTHON_MODULE=Python/3.10.13   # use o nome exato do `module avail`
+rm -rf "$VENV"                       # remove venv criado sem pip
+bash replication/slurm/setup_env_cluster.sh
+```
+
+O mesmo `PYTHON_MODULE` é repassado aos jobs pelo `submit_phase2.sh`. Se o
+`python3` do PATH não tiver `ensurepip`, o setup tenta `python -m ensurepip`;
+persistindo a falha, ele mostra o Python usado e pede para recriar o venv com
+um módulo adequado.
+
 ## 5. Cache de modelos (uma vez, no nó de login)
 
 ```bash

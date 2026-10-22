@@ -5,17 +5,32 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # O modulo Python pode ser necessario para as bibliotecas compartilhadas do
-# interpretador que originou o venv. Tenta os nomes usados na APUANA.
+# interpretador que originou o venv. PYTHON_MODULE fixa o nome exato; sem ele,
+# tenta os nomes comuns e o primeiro python3.x achado em `module avail`.
 load_python_module() {
   command -v module >/dev/null 2>&1 || return 0
-  local mod
-  for mod in Python/3.10 Python3.10 python/3.10 python3.10; do
+  if [[ -n "${PYTHON_MODULE:-}" ]]; then
+    if module load "${PYTHON_MODULE}" >/dev/null 2>&1; then
+      echo "[env] module ${PYTHON_MODULE} carregado"
+    else
+      echo "[warn] PYTHON_MODULE=${PYTHON_MODULE} nao carregou no job" >&2
+    fi
+    return 0
+  fi
+  local mod discovered
+  local candidates=(Python/3.10 Python3.10 python/3.10 python3.10)
+  discovered="$(module avail 2>&1 | tr ' ()' '\n' \
+    | grep -iE '^python3?/3\.[0-9]+' | sort -V | tail -n1 || true)"
+  if [[ -n "${discovered}" ]]; then
+    candidates+=("${discovered}")
+  fi
+  for mod in "${candidates[@]}"; do
     if module load "${mod}" >/dev/null 2>&1; then
       echo "[env] module ${mod} carregado"
       return 0
     fi
   done
-  echo "[warn] nenhum modulo Python 3.10 carregado; usando o PATH atual" >&2
+  echo "[warn] nenhum modulo Python 3.x carregado; usando o PATH atual" >&2
   return 0
 }
 load_python_module

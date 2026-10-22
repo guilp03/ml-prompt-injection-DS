@@ -218,3 +218,34 @@ def test_submit_rejects_memory_over_simple_qos(tmp_path):
     assert result.returncode == 2
     assert "excede o limite de 64GB" in result.stderr
 
+
+def test_setup_env_explains_broken_venv_without_pip(tmp_path):
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "activate").write_text(
+        f'export PATH="{venv}/bin:$PATH"\n', encoding="utf-8")
+    stub = venv / "bin" / "python"
+    stub.write_text("""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "-c" ]]; then exit 0; fi
+exit 1
+""", encoding="utf-8")
+    stub.chmod(0o755)
+
+    env = {
+        **os.environ,
+        "HOME": str(tmp_path),
+        "SCRATCH": str(tmp_path),
+        "VENV": str(venv),
+    }
+    env.pop("PYTHON", None)
+    env.pop("PYTHON_MODULE", None)
+    result = subprocess.run(
+        ["bash", str(SLURM_DIR / "setup_env_cluster.sh")],
+        text=True, capture_output=True, env=env,
+    )
+    assert result.returncode == 2
+    assert "pip ausente no venv" in result.stderr
+    assert "PYTHON_MODULE" in result.stderr
+
+

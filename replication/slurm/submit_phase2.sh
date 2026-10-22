@@ -16,6 +16,9 @@ fi
 VENV="${VENV:-${SCRATCH}/pids-repro}"
 HF_HOME="${HF_HOME:-${SCRATCH}/hf-cache}"
 export SCRATCH VENV HF_HOME
+if [[ -n "${PYTHON_MODULE:-}" ]]; then
+  export PYTHON_MODULE
+fi
 
 RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/replication/runs}"
 PARTITION_LIGHT="${PARTITION_LIGHT:-short-simple}"
