@@ -162,3 +162,59 @@ def test_run_harness_does_not_compare_stale_run(tmp_path):
     )
     assert result.returncode == 2
     assert marker.read_text(encoding="utf-8") == "model\nSTALE\n"
+
+
+def _write_stub_sbatch(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "${STUB_SBATCH_LOG:?}"
+echo 1001
+""", encoding="utf-8")
+    path.chmod(0o755)
+
+
+def _run_submit(tmp_path, *args, **env):
+    bindir = tmp_path / "bin"
+    _write_stub_sbatch(bindir / "sbatch")
+    log = tmp_path / "sbatch.log"
+    full_env = {
+        **os.environ,
+        "HOME": str(tmp_path),
+        "PATH": f"{bindir}:{os.environ['PATH']}",
+        "RUNS_ROOT": str(tmp_path / "runs"),
+        "STUB_SBATCH_LOG": str(log),
+    }
+    for key in ("SCRATCH", "VENV", "HF_HOME"):
+        full_env.pop(key, None)
+    full_env.update(env)
+    result = subprocess.run(
+        ["bash", str(SLURM_DIR / "submit_phase2.sh"), *args],
+        text=True, capture_output=True, env=full_env,
+    )
+    return result, log
+
+
+def test_submit_falls_back_to_home_when_scratch_is_unset(tmp_path):
+    result, log = _run_submit(tmp_path, "A")
+    assert result.returncode == 0, result.stderr
+    assert "SCRATCH vazio" in result.stderr
+    submissions = log.read_text(encoding="utf-8").splitlines()
+    assert len(submissions) == 2
+    for line in submissions:
+        assert f"SCRATCH={tmp_path}" in line
+        assert f"VENV={tmp_path}/pids-repro" in line
+        assert f"HF_HOME={tmp_path}/hf-cache" in line
+
+
+def test_submit_rejects_cpu_over_simple_qos(tmp_path):
+    result, _ = _run_submit(tmp_path, "A", CPUS_PER_TASK="32")
+    assert result.returncode == 2
+    assert "excede o limite de 16" in result.stderr
+
+
+def test_submit_rejects_memory_over_simple_qos(tmp_path):
+    result, _ = _run_submit(tmp_path, "A", MEM="128G")
+    assert result.returncode == 2
+    assert "excede o limite de 64GB" in result.stderr
+

@@ -4,6 +4,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# O modulo Python pode ser necessario para as bibliotecas compartilhadas do
+# interpretador que originou o venv. Tenta os nomes usados na APUANA.
+load_python_module() {
+  command -v module >/dev/null 2>&1 || return 0
+  local mod
+  for mod in Python/3.10 Python3.10 python/3.10 python3.10; do
+    if module load "${mod}" >/dev/null 2>&1; then
+      echo "[env] module ${mod} carregado"
+      return 0
+    fi
+  done
+  echo "[warn] nenhum modulo Python 3.10 carregado; usando o PATH atual" >&2
+  return 0
+}
+load_python_module
+
 : "${SPLIT_TAG:?defina SPLIT_TAG=A|B|C}"
 SPLIT_TAG="${SPLIT_TAG^^}"
 case "${SPLIT_TAG}" in
@@ -11,7 +27,18 @@ case "${SPLIT_TAG}" in
   *) echo "[error] SPLIT_TAG invalido: ${SPLIT_TAG}" >&2; exit 2 ;;
 esac
 
-: "${SCRATCH:?defina SCRATCH (ex.: /scratch/usuario)}"
+# A documentacao lista $SCRATCH como area de resultados temporarios (sem
+# quota, limpeza em 90 dias), mas a variavel pode nao estar exportada no shell.
+if [[ -z "${SCRATCH:-}" ]]; then
+  SCRATCH="${HOME:?HOME nao definido}"
+  echo "[warn] SCRATCH vazio; usando HOME como base: ${SCRATCH}" >&2
+fi
+if [[ ! -d "${SCRATCH}" || ! -w "${SCRATCH}" ]]; then
+  echo "[error] base nao gravavel: SCRATCH=${SCRATCH}" >&2
+  echo "[hint] export SCRATCH=/caminho/gravavel (ex.: \$HOME ou \$PROJECTS)" >&2
+  exit 2
+fi
+
 VENV="${VENV:-${SCRATCH}/pids-repro}"
 RUNS_ROOT="${RUNS_ROOT:-${REPO_ROOT}/replication/runs}"
 export HF_HOME="${HF_HOME:-${SCRATCH}/hf-cache}"
@@ -51,7 +78,13 @@ preflight_common() {
     exit 2
   fi
   mkdir -p "${RUNS_ROOT}/${SPLIT_TAG}" "${RUNS_ROOT}/logs"
-  echo "[env] split=${SPLIT_TAG} venv=${VENV} hf_home=${HF_HOME} runs=${RUNS_ROOT}"
+  echo "[env] split=${SPLIT_TAG} host=$(hostname) venv=${VENV} hf_home=${HF_HOME} runs=${RUNS_ROOT}"
+  if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+    echo "[job] id=${SLURM_JOB_ID} partition=${SLURM_JOB_PARTITION:-?} cpus=${SLURM_CPUS_PER_TASK:-?}"
+  fi
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi -L 2>/dev/null | sed 's/^/[gpu] /' || true
+  fi
 }
 
 run_compare() {
