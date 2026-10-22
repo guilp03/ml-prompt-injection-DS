@@ -5,6 +5,15 @@ Documento de planejamento dos passos seguintes à reprodução local mínima
 `docs/superpowers/specs/2026-10-15-replicacao-local-ai-jailbreak-framework-design.md`
 e plano em `docs/superpowers/plans/2026-10-15-replicacao-local-ai-jailbreak-framework.md`.
 
+> **Atualização (2026-10-22):** os fatos da APUANA foram confirmados na
+> documentação oficial (<https://apuana.cin.ufpe.br/usage>) e incorporados ao
+> runbook `replication/slurm/README.md`. Destacam-se: host
+> `slurm-client1.cin.ufpe.br`; `$HOME` com 100 GB/1000K e backup diário;
+> `$SCRATCH` sem quota e com limpeza em 90 dias; `$ARCHIVE` com 500 GB (só nós
+> de login); QoS `simple` = 16 CPUs/64 GB/2 GPUs e `complex` =
+> 48 CPUs/500 GB/4 GPUs; e `module load Python3.10` (o nome `Python/3.10`
+> também é tentado pelos scripts).
+
 ## 0. Onde estamos
 
 Concluído e verificado (Fase 1, split A, famílias leves):
